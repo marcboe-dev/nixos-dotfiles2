@@ -15,14 +15,22 @@
     home-manager,
     ...
   }: let
+    lib = nixpkgs.lib;
     pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    # Funktion: bekommt einen Host-Ordner, gibt ein komplettes System zurück
-    mkHost = hostDir:
-      nixpkgs.lib.nixosSystem {
+
+    # Jeder Ordner in hosts/ ist ein Host (Dateien wie laptop-common.nix werden ignoriert)
+    hostNames = builtins.attrNames (
+      lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./hosts)
+    );
+
+    # Funktion: bekommt einen Host-Namen, gibt ein komplettes System zurück
+    mkHost = name:
+      lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
           ./configuration.nix # gemeinsam
-          hostDir # rechnerspezifisch
+          (./hosts + "/${name}") # rechnerspezifisch
+          {networking.hostName = "nixos-${name}";}
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -35,16 +43,17 @@
         ];
       };
   in {
-    nixosConfigurations = {
-      nixos-vm = mkHost ./hosts/vm;
-      nixos-laptop = mkHost ./hosts/laptop;
-    };
+    nixosConfigurations = builtins.listToAttrs (map (name: {
+        name = "nixos-${name}";
+        value = mkHost name;
+      })
+      hostNames);
 
     apps.x86_64-linux.default = {
       type = "app";
       program = "${pkgs.writeShellApplication {
         name = "install";
-        runtimeInputs = [pkgs.git];
+        runtimeInputs = [pkgs.git pkgs.coreutils pkgs.gnused pkgs.diffutils];
         text = builtins.readFile ./install.sh;
       }}/bin/install";
     };
