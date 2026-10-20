@@ -1,8 +1,7 @@
-{ ... }:
-{
-  imports = [ ./hardware-configuration.nix ];
+{...}: {
+  imports = [./hardware-configuration.nix];
 
-  networking.hostName = "nixos-vm";
+  networking.networkmanager.insertNameservers = ["1.1.1.1" "9.9.9.9"];
 
   virtualisation.vmware.guest.enable = true; # copying from host to vm
 
